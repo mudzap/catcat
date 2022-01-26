@@ -36,7 +36,7 @@ public class AudioFileController {
     /*
      *  PUT MAPPINGS
      */
-    @PutMapping(path = "id")
+    @PutMapping(path = "{id}")
     public ResponseEntity<?> updateTrack(@PathVariable("id") Long id,
                                          @RequestParam("new_file") Optional<MultipartFile> newFile,
                                          @RequestParam("new_title") Optional<String> newTitle,
@@ -54,6 +54,7 @@ public class AudioFileController {
             @RequestParam("new_title") Optional<String> newTitle,
             @RequestParam("new_track_no") Optional<Integer> newTrackNo,
             @RequestParam("new_album") Optional<String> newAlbum) {
+        println(title);
         return audioFileService.updateTrack(title, album, trackNo, newFile, newTitle, newAlbum, newTrackNo);
     }
     /* PUT END */
@@ -62,7 +63,7 @@ public class AudioFileController {
     /*
      *  DELETE MAPPINGS
      */
-    @DeleteMapping(path = "id")
+    @DeleteMapping(path = "{id}")
     public ResponseEntity<?> removeTrack(@PathVariable("id") Long id) {
         return audioFileService.removeTrack(id);
     }
@@ -79,7 +80,7 @@ public class AudioFileController {
     /*
      *  GET MAPPINGS
      */
-    @GetMapping(path = "id")
+    @GetMapping(path = "{id}")
     public ResponseEntity<?> getTrack(@PathVariable("id") Long id) {
         return audioFileService.getTrack(id);
     }

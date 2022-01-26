@@ -11,10 +11,10 @@ import javax.swing.text.html.Option
 public interface AudioFileRepository extends JpaRepository<AudioFile, Long>{
 
     @Query("SELECT f FROM AudioFile f WHERE f.title = ?1 AND f.album = ?2")
-    Collection<AudioFile> getByNameAlbum(String title, String album);
+    Collection<AudioFile> findByNameAlbum(String title, String album);
 
     @Query("SELECT f FROM AudioFile f WHERE f.title = ?1 AND f.album = ?2 AND f.trackNo = ?3")
-    Optional<AudioFile> getByNameAlbumTrackNo(String title, String album, Integer trackNo);
+    Optional<AudioFile> findByNameAlbumTrackNo(String title, String album, Integer trackNo);
 
 }
 

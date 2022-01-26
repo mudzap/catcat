@@ -20,7 +20,7 @@ public class AudioFileService {
         // If already exists, raise exception
         // Assume identical tracks can exist on different albums, so no hashing comparison is required
         // Comparison function depends on: album name + song name
-        Optional<AudioFile> f = audioFileRepository.getByNameAlbumTrackNo(
+        Optional<AudioFile> f = audioFileRepository.findByNameAlbumTrackNo(
                 audioFile.getTitle(),
                 audioFile.getAlbum(),
                 audioFile.getTrackNo()
@@ -66,11 +66,11 @@ public class AudioFileService {
                                          Optional<Integer> newTrackNo) {
         if (trackNo.isPresent()) {
             /* Track no. provided */
-            Optional<AudioFile> f = audioFileRepository.getByNameAlbumTrackNo(title, album, trackNo.get());
+            Optional<AudioFile> f = audioFileRepository.findByNameAlbumTrackNo(title, album, trackNo.get());
             return updateTrackFields(f, audioFile, newTitle, newAlbum, newTrackNo);
         } else {
             /* No track no. provided (collection of entities can be returned) */
-            Optional<Collection<AudioFile>> f = audioFileRepository.getByNameAlbum(title, album);
+            Optional<Collection<AudioFile>> f = audioFileRepository.findByNameAlbum(title, album);
             if (f.isPresent()) {
 
                 /* Refuses to update multiple elements in a single query to prevent user error */
@@ -134,7 +134,7 @@ public class AudioFileService {
 
     public ResponseEntity<?> getTrack(String title, String album,
                                       List<String> genres, List<String> artists) {
-        Optional<AudioFile> f = audioFileRepository.getByNameAlbum(title, album);
+        Optional<AudioFile> f = audioFileRepository.findByNameAlbum(title, album);
         if (f.isPresent()) {
             InputStreamResource inputStreamResource =
                     new InputStreamResource(audioFileContentStore.getContent(f.get()));
@@ -157,7 +157,7 @@ public class AudioFileService {
      */
 
     public ResponseEntity<?> removeTrack(Long id) {
-        Optional<AudioFile> f = audioFileRepository.getById(id);
+        Optional<AudioFile> f = audioFileRepository.findById(id);
         if (f.ifPresent()) {
             audioFileRepository.delete(f.get());
             return new ResponseEntity<Object>(HttpStatus.OK);
@@ -168,13 +168,13 @@ public class AudioFileService {
     public ResponseEntity<?> removeTrack(String title, String album, Optional<Integer> trackNo) {
         if (trackNo.isPresent()) {
             /* Track no. provided */
-            Optional<AudioFile> f = audioFileRepository.getByNameAlbumTrackNo(title, album, trackNo.get());
+            Optional<AudioFile> f = audioFileRepository.findByNameAlbumTrackNo(title, album, trackNo.get());
             audioFileRepository.delete(f.get());
             return new ResponseEntity<Object>(HttpStatus.OK);
 
         } else {
             /* No track no. provided (collection of entities can be returned) */
-            Optional<Collection<AudioFile>> f = audioFileRepository.getByNameAlbum(title, album);
+            Optional<Collection<AudioFile>> f = audioFileRepository.findByNameAlbum(title, album);
             if (f.isPresent()) {
 
                 /* Refuses to delete multiple elements in a single query to prevent user error */
