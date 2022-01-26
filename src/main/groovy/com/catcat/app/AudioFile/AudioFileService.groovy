@@ -1,17 +1,11 @@
 package com.catcat.app.AudioFile
 
-import com.catcat.app.AlbumCover.AlbumCoverService
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.io.InputStreamResource
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Service
-import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.PutMapping
-import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.multipart.MultipartFile
 
 import javax.swing.text.html.Option
@@ -21,13 +15,22 @@ public class AudioFileService {
 
     @Autowired private AudioFileContentStore audioFileContentStore;
     @Autowired private AudioFileRepository audioFileRepository;
-    @Autowired private AlbumCoverService albumCoverService;
 
-    public ResponseEntity<?> addTrack(AudioFile audiofile, MultipartFile file) {
+    public ResponseEntity<?> addTrack(AudioFile audioFile) {
         // If already exists, raise exception
         // Assume identical tracks can exist on different albums, so no hashing comparison is required
         // Comparison function depends on: album name + song name
-        return new ResponseEntity<Object>(HttpStatus.NOT_IMPLEMENTED);
+        Optional<AudioFile> f = audioFileRepository.getByNameAlbumTrackNo(
+                audioFile.getTitle(),
+                audioFile.getAlbum(),
+                audioFile.getTrackNo()
+        );
+        if (f.isPresent()) {
+            return new ResponseEntity<Object>(HttpStatus.METHOD_NOT_ALLOWED);
+        } else {
+            audioFileRepository.save(audioFile);
+        }
+        return new ResponseEntity<Object>(HttpStatus.OK);
     }
 
 
@@ -84,25 +87,27 @@ public class AudioFileService {
 
     /* Helper class for updating several fields */
     private ResponseEntity<?> updateTrackFields(Optional<AudioFile> f,
-                              Optional<MultipartFile> audioFile,
+                              Optional<MultipartFile> file,
                               Optional<String> newTitle,
                               Optional<String> newAlbum,
                               Optional<Integer> newTrackNo) {
         if (f.isPresent()) {
-            if (audioFile.isPresent()) {
-                f.setMimeType(audioFile.get().getContentType());
-                audioFileContentStore.setContent(f, audioFile.get().getInputStream());
-                audioFileRepository.save(f);
-            }
+            AudioFile audioFile = f.get();
             if (newTitle.isPresent()) {
-                f.setTitle(newTitle.get());
+                audioFile.setTitle(newTitle.get());
             }
             if (newAlbum.isPresent()) {
-                f.setAlbum(newAlbum.get());
+                audioFile.setAlbum(newAlbum.get());
             }
             if (newTrackNo.isPresent()) {
-                f.setTrackNo(newTrackNo.get());
+                audioFile.setTrackNo(newTrackNo.get());
             }
+            if (file.isPresent()) {
+                MultipartFile existing_file = file.get();
+                audioFile.setMimeType(existing_file.getContentType());
+                audioFileContentStore.setContent(audioFile, existing_file.getInputStream());
+            }
+            audioFileRepository.save(audioFile);
             return new ResponseEntity<Object>(HttpStatus.OK);
         }
         return new ResponseEntity<Object>(HttpStatus.NOT_FOUND);
@@ -115,6 +120,18 @@ public class AudioFileService {
      *  Removing a track returns OK
      *  Attempting to remove a non-existing track returns NOT FOUND
      */
+    public ResponseEntity<?> getTrack(Long id) {
+        Optional<AudioFile> f = audioFileRepository.findById(id);
+        if (f.isPresent()) {
+            InputStreamResource inputStreamResource = new InputStreamResource(audioFileContentStore.getContent(f.get()));
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentLength(f.get().getContentLength());
+            headers.set("Content-Type", f.get().getMimeType());
+            return new ResponseEntity<Object>(inputStreamResource, headers, HttpStatus.OK);
+        }
+        return new ResponseEntity<Object>(HttpStatus.NOT_FOUND);
+    }
+
     public ResponseEntity<?> getTrack(String title, String album,
                                       List<String> genres, List<String> artists) {
         Optional<AudioFile> f = audioFileRepository.getByNameAlbum(title, album);
