@@ -1,5 +1,7 @@
 package com.catcat.app.AudioFile
 
+import com.catcat.app.Album.Album
+import com.catcat.app.Album.AlbumRepository
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.io.InputStreamResource
 import org.springframework.http.HttpHeaders
@@ -13,6 +15,7 @@ import javax.swing.text.html.Option
 @Service
 public class AudioFileService {
 
+    @Autowired private AlbumRepository albumRepository;
     @Autowired private AudioFileContentStore audioFileContentStore;
     @Autowired private AudioFileRepository audioFileRepository;
 
@@ -22,13 +25,31 @@ public class AudioFileService {
         // Comparison function depends on: album name + song name
         Optional<AudioFile> f = audioFileRepository.findByNameAlbumTrackNo(
                 audioFile.getTitle(),
-                audioFile.getAlbum(),
+                audioFile.getAlbum().getTitle(),
                 audioFile.getTrackNo()
         );
         if (f.isPresent()) {
             return new ResponseEntity<Object>(HttpStatus.METHOD_NOT_ALLOWED);
         } else {
+            Optional<Album> a = albumRepository.findByNameArtist(
+                    audioFile.getAlbum().getTitle(),
+                    audioFile.getAlbum().getArtist()
+            );
+            if (a.isPresent()) {
+                audioFile.setAlbum(a.get());
+            } else {
+                albumRepository.save(audioFile.getAlbum());
+            }
             audioFileRepository.save(audioFile);
+        }
+
+        return new ResponseEntity<Object>(HttpStatus.OK);
+    }
+
+    public ResponseEntity<?> addTracks(List<AudioFile> audioFiles) {
+        for (AudioFile audioFile : audioFiles) {
+            if (addTrack(audioFile).statusCode != HttpStatus.OK)
+                return new ResponseEntity<Object>(HttpStatus.BAD_REQUEST);
         }
         return new ResponseEntity<Object>(HttpStatus.OK);
     }
@@ -51,32 +72,53 @@ public class AudioFileService {
      *  Attempting to update several tracks returns METHOD NOT ALLOWED
      */
     public ResponseEntity<?> updateTrack(Long id,
-                                         Optional<MultipartFile> audioFile,
-                                         Optional<String> newTitle,
-                                         Optional<String> newAlbum,
-                                         Optional<Integer> newTrackNo) {
+                                         Optional<MultipartFile> file,
+                                         Optional<String> title,
+                                         Optional<String> album,
+                                         Optional<Integer> trackNo) {
         Optional<AudioFile> f = audioFileRepository.findById(id);
-        return updateTrackFields(f, audioFile, newTitle, newAlbum, newTrackNo);
+        if(f.isPresent()) {
+            if (title.isPresent()) {
+                f.get().setTitle(title.get());
+            }
+            if (album.isPresent()) {
+                Optional<Album> a = albumRepository.findByName(album.get());
+                if (a.isPresent()) {
+                    f.get().setAlbum(a.get());
+                }
+            }
+            if (trackNo.isPresent()) {
+                f.get().setTrackNo(trackNo.get());
+            }
+            if (file.isPresent()) {
+                MultipartFile existing_file = file.get();
+                f.get().setMimeType(existing_file.getContentType());
+                audioFileContentStore.setContent(f.get(), existing_file.getInputStream());
+            }
+            audioFileRepository.save(f.get());
+            return new ResponseEntity<Object>(HttpStatus.OK);
+        }
+        return new ResponseEntity<Object>(HttpStatus.NOT_FOUND);
     }
-
-    public ResponseEntity<?> updateTrack(String title, String album, Optional<Integer> trackNo,
+    /*
+    public ResponseEntity<?> updateTrack(String title, Album album, Optional<Integer> trackNo,
                                          Optional<MultipartFile> audioFile,
                                          Optional<String> newTitle,
-                                         Optional<String> newAlbum,
+                                         Optional<Album> newAlbum,
                                          Optional<Integer> newTrackNo) {
         if (trackNo.isPresent()) {
-            /* Track no. provided */
+            // Track no. provided
             Optional<AudioFile> f = audioFileRepository.findByNameAlbumTrackNo(title, album, trackNo.get());
-            return updateTrackFields(f, audioFile, newTitle, newAlbum, newTrackNo);
+            return updateTrackFields(f.get(), audioFile, newTitle, newAlbum, newTrackNo);
         } else {
-            /* No track no. provided (collection of entities can be returned) */
-            Optional<Collection<AudioFile>> f = audioFileRepository.findByNameAlbum(title, album);
-            if (f.isPresent()) {
+            // No track no. provided (collection of entities can be returned)
+            Set<AudioFile> f = audioFileRepository.findByNameAlbum(title, album);
+            if (f.size() > 0) {
 
-                /* Refuses to update multiple elements in a single query to prevent user error */
-                if (f.get().size < 2) {
-                    /* Updates first element of collection, i.e: the only element */
-                    return updateTrackFields(f, audioFile, newTitle, newAlbum, newTrackNo);
+                // Refuses to update multiple elements in a single query to prevent user error
+                if (f.size() < 2) {
+                    // Updates first element of collection, i.e: the only element
+                    return updateTrackFields(f.iterator().next(), audioFile, newTitle, newAlbum, newTrackNo);
                 }
                 return new ResponseEntity<Object>(HttpStatus.METHOD_NOT_ALLOWED);
 
@@ -84,33 +126,30 @@ public class AudioFileService {
         }
         return new ResponseEntity<Object>(HttpStatus.NOT_FOUND);
     }
+    */
 
     /* Helper class for updating several fields */
-    private ResponseEntity<?> updateTrackFields(Optional<AudioFile> f,
-                              Optional<MultipartFile> file,
-                              Optional<String> newTitle,
-                              Optional<String> newAlbum,
-                              Optional<Integer> newTrackNo) {
-        if (f.isPresent()) {
-            AudioFile audioFile = f.get();
-            if (newTitle.isPresent()) {
-                audioFile.setTitle(newTitle.get());
-            }
-            if (newAlbum.isPresent()) {
-                audioFile.setAlbum(newAlbum.get());
-            }
-            if (newTrackNo.isPresent()) {
-                audioFile.setTrackNo(newTrackNo.get());
-            }
-            if (file.isPresent()) {
-                MultipartFile existing_file = file.get();
-                audioFile.setMimeType(existing_file.getContentType());
-                audioFileContentStore.setContent(audioFile, existing_file.getInputStream());
-            }
-            audioFileRepository.save(audioFile);
-            return new ResponseEntity<Object>(HttpStatus.OK);
+    private ResponseEntity<?> updateTrackFields(AudioFile f,
+                                                Optional<MultipartFile> file,
+                                                Optional<String> newTitle,
+                                                Optional<Album> newAlbum,
+                                                Optional<Integer> newTrackNo) {
+        if (newTitle.isPresent()) {
+            f.setTitle(newTitle.get());
         }
-        return new ResponseEntity<Object>(HttpStatus.NOT_FOUND);
+        if (newAlbum.isPresent()) {
+            f.setAlbum(newAlbum.get());
+        }
+        if (newTrackNo.isPresent()) {
+            f.setTrackNo(newTrackNo.get());
+        }
+        if (file.isPresent()) {
+            MultipartFile existing_file = file.get();
+            f.setMimeType(existing_file.getContentType());
+            audioFileContentStore.setContent(f, existing_file.getInputStream());
+        }
+        audioFileRepository.save(f);
+        return new ResponseEntity<Object>(HttpStatus.OK);
     }
     /* PUT END */
 
@@ -132,16 +171,16 @@ public class AudioFileService {
         return new ResponseEntity<Object>(HttpStatus.NOT_FOUND);
     }
 
-    public ResponseEntity<?> getTrack(String title, String album,
-                                      List<String> genres, List<String> artists) {
-        Optional<AudioFile> f = audioFileRepository.findByNameAlbum(title, album);
-        if (f.isPresent()) {
-            InputStreamResource inputStreamResource =
-                    new InputStreamResource(audioFileContentStore.getContent(f.get()));
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentLength(f.get().getContentLength());
-            headers.set("Content-Type", f.get().getMimeType());
-            return new ResponseEntity<Object>(inputStreamResource, headers, HttpStatus.OK);
+    public ResponseEntity<?> getAllTracks() {
+        return new ResponseEntity<String>(audioFileRepository.getAll().toString(), HttpStatus.OK);
+    }
+
+    public ResponseEntity<?> getTrack(String title,
+                           String album_title) {
+        Optional<Album> album = albumRepository.findByName(album_title);
+        if (album.isPresent()) {
+            String s = audioFileRepository.findByNameAlbum(title, album.get().getTitle()).toString();
+            return new ResponseEntity<String>(s, HttpStatus.OK);
         }
         return new ResponseEntity<Object>(HttpStatus.NOT_FOUND);
     }
@@ -165,30 +204,6 @@ public class AudioFileService {
         return new ResponseEntity<Object>(HttpStatus.NOT_FOUND);
     }
 
-    public ResponseEntity<?> removeTrack(String title, String album, Optional<Integer> trackNo) {
-        if (trackNo.isPresent()) {
-            /* Track no. provided */
-            Optional<AudioFile> f = audioFileRepository.findByNameAlbumTrackNo(title, album, trackNo.get());
-            audioFileRepository.delete(f.get());
-            return new ResponseEntity<Object>(HttpStatus.OK);
-
-        } else {
-            /* No track no. provided (collection of entities can be returned) */
-            Optional<Collection<AudioFile>> f = audioFileRepository.findByNameAlbum(title, album);
-            if (f.isPresent()) {
-
-                /* Refuses to delete multiple elements in a single query to prevent user error */
-                if (f.get().size < 2) {
-                    /* Removes first element of collection, i.e: the only element */
-                    audioFileRepository.delete(f.get().iterator().next());
-                    return new ResponseEntity<Object>(HttpStatus.OK);
-                }
-                return new ResponseEntity<Object>(HttpStatus.METHOD_NOT_ALLOWED);
-
-            }
-        }
-        return new ResponseEntity<Object>(HttpStatus.NOT_FOUND);
-    }
     /* DELETE END */
 
 }

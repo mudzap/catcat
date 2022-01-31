@@ -1,6 +1,7 @@
 package com.catcat.app.AudioFile
 
 import com.catcat.app.Album.Album
+import com.catcat.app.Album.AlbumService
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.io.InputStreamResource
 import org.springframework.http.HttpHeaders
@@ -26,9 +27,14 @@ public class AudioFileController {
     /*
      *  POST MAPPINGS
      */
+    /*
     @PostMapping
     public ResponseEntity<?> addTrack(@RequestBody AudioFile audioFile) {
         return audioFileService.addTrack(audioFile);
+    }
+    */
+    @PostMapping    public ResponseEntity<?> addTrack(@RequestBody List<AudioFile> audioFiles) {
+        return audioFileService.addTracks(audioFiles);
     }
     /* POST END */
 
@@ -36,26 +42,13 @@ public class AudioFileController {
     /*
      *  PUT MAPPINGS
      */
-    @PutMapping(path = "{id}")
+    @PutMapping(path = "files/{id}")
     public ResponseEntity<?> updateTrack(@PathVariable("id") Long id,
-                                         @RequestParam("new_file") Optional<MultipartFile> newFile,
-                                         @RequestParam("new_title") Optional<String> newTitle,
-                                         @RequestParam("new_album") Optional<String> newAlbum,
-                                         @RequestParam("new_track_no") Optional<Integer> newTrackNo) {
-        println(id);
-        return audioFileService.updateTrack(id, newFile, newTitle, newAlbum, newTrackNo);
-    }
-    @PutMapping
-    public ResponseEntity<?> updateTrack(
-            @RequestParam("title") String title,
-            @RequestParam("track_no") Optional<Integer> trackNo,
-            @RequestParam("album") String album,
-            @RequestParam("new_file") Optional<MultipartFile> newFile,
-            @RequestParam("new_title") Optional<String> newTitle,
-            @RequestParam("new_track_no") Optional<Integer> newTrackNo,
-            @RequestParam("new_album") Optional<String> newAlbum) {
-        println(title);
-        return audioFileService.updateTrack(title, album, trackNo, newFile, newTitle, newAlbum, newTrackNo);
+                                         @RequestParam("file") Optional<MultipartFile> file,
+                                         @RequestParam("title") Optional<String> title,
+                                         @RequestParam("album_title") Optional<String> albumTitle,
+                                         @RequestParam("track_no") Optional<String> trackNo) {
+        return audioFileService.updateTrack(id, file, title, albumTitle, trackNo);
     }
     /* PUT END */
 
@@ -67,35 +60,27 @@ public class AudioFileController {
     public ResponseEntity<?> removeTrack(@PathVariable("id") Long id) {
         return audioFileService.removeTrack(id);
     }
-    @DeleteMapping
-    public ResponseEntity<?> removeTrack(
-            @RequestParam("title") String title,
-            @RequestParam("album") String album,
-            @RequestParam("track_no") Optional<Integer> trackNo) {
-        return audioFileService.removeTrack(title, album, trackNo);
-    }
     /* DELETE END */
 
 
     /*
      *  GET MAPPINGS
      */
-    @GetMapping(path = "{id}")
+    @GetMapping(path = "files/{id}")
     public ResponseEntity<?> getTrack(@PathVariable("id") Long id) {
         return audioFileService.getTrack(id);
     }
 
     @GetMapping
     public ResponseEntity<?> getTrack(
-            @RequestParam("title") Optional<String> title,
-            @RequestParam("track_no") Optional<Integer> trackNo,
-            @RequestParam("album") Optional<String> album,
-            @RequestParam("artist") Optional<String> artist,
-            @RequestParam("genre") Optional<String> genre,
-            @RequestParam("style") Optional<String> style,
-            @RequestParam("label") Optional<String> label) {
-        //return audioFileService.getTrack(title, album, trackNo);
-        return new ResponseEntity<Object>(HttpStatus.NOT_IMPLEMENTED);
+            @RequestParam("title") String title,
+            @RequestParam("album") String album_title) {
+        return audioFileService.getTrack(title, album_title);
+    }
+
+    @GetMapping(path = "all")
+    public ResponseEntity<?> getAllTracks() {
+        return audioFileService.getAllTracks();
     }
     /* GET END */
 
